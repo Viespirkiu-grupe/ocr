@@ -20,7 +20,7 @@ func File(ctx context.Context, url string, path string) error {
 		slog.Info("fetched file", "url", url, "path", path)
 	}()
 	hc := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 120 * time.Second,
 	}
 
 	resp, err := hc.Get(url)
@@ -81,7 +81,7 @@ func Results(ctx context.Context, url string, result model.Response) error {
 		slog.Info("posted result", "id", result.ID, "texts", len(result.Text))
 	}()
 	hc := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: 30 * time.Second,
 	}
 
 	b, err := json.Marshal(result)
