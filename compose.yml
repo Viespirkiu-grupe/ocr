@@ -1,7 +1,7 @@
 services:
   ocr:
     build: .
-    image: ocr
+    image: ghcr.io/viespirkiu-grupe/ocr:latest
     restart: unless-stopped
     volumes:
       - ./inbox:/inbox
