@@ -1,0 +1,8 @@
+services:
+  ocr:
+    build: .
+    image: ocr
+    restart: unless-stopped
+    volumes:
+      - ./inbox:/inbox
+      - ./.env:/.env
