@@ -10,8 +10,8 @@ cp env.example .env
 2. Set `GET_TASK_URL`, `POST_RESULT_URL` and `CONCURRENCY` in `.env`
 
 ```shell
-GET_TASK_URL= # tasks url  
-POST_RESULT_URL= # results url
+GET_TASK_URL= # tasks url  ( to get this url contact us at https://viespirkiai.top/kontaktai)
+POST_RESULT_URL= # results url ( to get this url contact us at https://viespirkiai.top/kontaktai)
 BASE_FILE_URL=https://failai-direct.viespirkiai.top/
 CONCURRENCY=8 # 32 real cores + HT = 32/2 = 16 is value value you need to set
 INBOX_DIR=./inbox
