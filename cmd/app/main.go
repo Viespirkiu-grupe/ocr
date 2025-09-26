@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	stats int64
+	pages int64
 	files int64
 	since time.Time
 )
@@ -46,6 +46,7 @@ func run(ctx context.Context) error {
 			task, err := fetcher.Task(ctx, config.NextURL)
 			if err != nil {
 				slog.Error("fetch task", "error", err)
+				time.Sleep(10 * time.Second)
 				continue
 			}
 
@@ -65,7 +66,7 @@ func run(ctx context.Context) error {
 		for {
 			select {
 			case <-ticker.C:
-				slog.Info("stats", "files", atomic.LoadInt64(&files), "duration", time.Since(since), "files/sec", float64(atomic.LoadInt64(&files))/time.Since(since).Seconds(), "files/min", float64(atomic.LoadInt64(&files))/time.Since(since).Minutes())
+				slog.Info("stats", "files", atomic.LoadInt64(&files), "duration", time.Since(since), "files/sec", float64(atomic.LoadInt64(&files))/time.Since(since).Seconds(), "files/min", float64(atomic.LoadInt64(&files))/time.Since(since).Minutes(), "pages", atomic.LoadInt64(&pages), "pages/sec", float64(atomic.LoadInt64(&pages))/time.Since(since).Seconds(), "pages/min", float64(atomic.LoadInt64(&pages))/time.Since(since).Minutes())
 			case <-ctx.Done():
 				return
 			}
@@ -96,6 +97,7 @@ func process(ctx context.Context, task model.Task, config config.Config) error {
 	if err != nil {
 		return err
 	}
+
 	slog.Info("page count", "id", task.ID, "pages", pageCount)
 
 	var wg sync.WaitGroup
@@ -128,6 +130,8 @@ func process(ctx context.Context, task model.Task, config config.Config) error {
 	if err != nil {
 		return fmt.Errorf("collect text files: %w", err)
 	}
+
+	atomic.AddInt64(&pages, int64(pageCount))
 
 	result := model.Response{
 		ID:       task.ID,
