@@ -1,8 +1,11 @@
 package config
 
 import (
+	"log/slog"
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -15,8 +18,12 @@ type Config struct {
 }
 
 func Load() Config {
+	slog.Debug("loading config", "env", os.Environ())
+	if err := godotenv.Load(); err != nil {
+		slog.Warn("No .env file found")
+	}
 	getEnv := func(k, def string) string {
-		if v := os.Getenv(k); v != "" {
+		if v, ok := os.LookupEnv(k); ok {
 			return v
 		}
 		return def

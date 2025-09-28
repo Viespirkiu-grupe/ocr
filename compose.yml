@@ -3,6 +3,7 @@ services:
     build: .
     image: ghcr.io/viespirkiu-grupe/ocr:latest
     restart: unless-stopped
+    env_file:
+      - ./.env
     volumes:
       - ./inbox:/inbox
-      - ./.env:/.env

@@ -14,7 +14,6 @@ import (
 	"github.com/Viespirkiu-grupe/ocr/internal/config"
 	"github.com/Viespirkiu-grupe/ocr/internal/model"
 	"github.com/Viespirkiu-grupe/ocr/internal/pkg/fetcher"
-	"github.com/joho/godotenv"
 )
 
 var (
@@ -32,13 +31,10 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	err := godotenv.Load()
-	if err != nil {
-		return err
-	}
-
 	config := config.Load()
 	since = time.Now()
+
+	slog.Info("starting ocr worker", "config", config)
 
 	go func() {
 		for {
