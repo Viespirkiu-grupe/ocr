@@ -14,7 +14,7 @@ GET_TASK_URL= # tasks url  ( to get this url contact us at https://viespirkiai.t
 POST_RESULT_URL= # results url ( to get this url contact us at https://viespirkiai.top/kontaktai)
 BASE_FILE_URL=https://failai-direct.viespirkiai.top/
 CONCURRENCY=8 # 32 real cores + HT = floor(32/3) = 10 is value value you need to set
-INBOX_DIR=./inbox
+INBOX_DIR=/inbox
 TESSERACT_LANG=lit+eng
 ```
 3. Run the service
