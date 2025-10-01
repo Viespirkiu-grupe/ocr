@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -25,8 +26,26 @@ var (
 func main() {
 	ctx := context.Background()
 	slog.SetLogLoggerLevel(slog.LevelDebug)
+	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if a.Value.Kind() == slog.KindString && a.Key == "url" {
+				val := a.Value.String()
+				if u, err := url.Parse(val); err == nil {
+					q := u.Query()
+					if q.Has("apiKey") {
+						q.Set("apiKey", "******")
+						u.RawQuery = q.Encode()
+						val = u.String()
+					}
+				}
+				return slog.String(a.Key, val)
+			}
+			return a
+		},
+	})
+	slog.SetDefault(slog.New(handler))
 	if err := run(ctx); err != nil {
-		panic(err)
+		slog.Error("fatal error", "error", err)
 	}
 }
 
@@ -36,6 +55,9 @@ func run(ctx context.Context) error {
 
 	slog.Info("starting ocr worker", "config", config)
 
+	if _, err := os.Stat(config.InboxDir); os.IsNotExist(err) {
+		return fmt.Errorf("inbox dir does not exist. Check for env INBOX_DIR")
+	}
 	go func() {
 		for {
 			slog.Info("polling for task")

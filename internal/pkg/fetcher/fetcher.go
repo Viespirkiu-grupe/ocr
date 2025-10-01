@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Viespirkiu-grupe/ocr/internal/model"
+	"github.com/schollz/progressbar/v3"
 )
 
 func File(ctx context.Context, url string, path string) error {
@@ -39,7 +40,18 @@ func File(ctx context.Context, url string, path string) error {
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, resp.Body)
+	bar := progressbar.NewOptions64(
+		resp.ContentLength,
+		progressbar.OptionSetDescription("downloading"),
+		progressbar.OptionShowBytes(true),
+		progressbar.OptionSetWidth(20),
+		progressbar.OptionThrottle(100*time.Millisecond),
+		progressbar.OptionShowCount(),
+		progressbar.OptionClearOnFinish(),
+	)
+
+	_, err = io.Copy(io.MultiWriter(out, bar), resp.Body)
+
 	return err
 }
 

@@ -9,6 +9,7 @@ import (
 )
 
 type Config struct {
+	InboxDir          string
 	BaseFileURL       string
 	NextURL           string
 	ResultURL         string
@@ -49,6 +50,7 @@ func Load() Config {
 	// }
 
 	return Config{
+		InboxDir:      getEnv("INBOX_DIR", "./inbox"),
 		BaseFileURL:   getEnv("BASE_FILE_URL", "http://localhost:8080/file/"),
 		NextURL:       getEnv("GET_TASK_URL", "http://localhost:8080/next"),
 		ResultURL:     getEnv("POST_RESULT_URL", "http://localhost:8080/result"),
