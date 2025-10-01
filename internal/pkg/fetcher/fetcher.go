@@ -71,7 +71,7 @@ func Task(ctx context.Context, url string) (model.Task, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return model.Task{}, err
+		return model.Task{}, fmt.Errorf("failed to fetch task: %d", resp.StatusCode)
 	}
 
 	b, err := io.ReadAll(resp.Body)
