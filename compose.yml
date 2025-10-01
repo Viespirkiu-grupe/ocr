@@ -2,6 +2,7 @@ services:
   ocr:
     build: .
     image: ghcr.io/viespirkiu-grupe/ocr:latest
+    container_name: ocr
     restart: unless-stopped
     env_file:
       - ./.env
