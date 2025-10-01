@@ -72,6 +72,7 @@ func run(ctx context.Context) error {
 
 			if err := process(ctx, task, config); err != nil {
 				slog.Error("process task", "id", task.ID, "error", err)
+				time.Sleep(10 * time.Second)
 				continue
 			}
 			atomic.AddInt64(&files, 1)
