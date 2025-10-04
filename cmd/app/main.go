@@ -159,8 +159,19 @@ func process(ctx context.Context, task model.Task, config config.Config) error {
 	}
 
 	slog.Info("collected texts", "id", task.ID, "pages", len(texts))
-
-	return fetcher.Results(ctx, config.ResultURL, result)
+	postResults := func() error {
+		var err error
+		for range 5 {
+			err = fetcher.Results(ctx, config.ResultURL, result)
+			if err == nil {
+				break
+			}
+			slog.Error("post results", "id", task.ID, "error", err)
+			time.Sleep(10 * time.Second)
+		}
+		return nil
+	}
+	return postResults()
 }
 
 func getPageCount(ctx context.Context, inputFile string) (int, error) {
