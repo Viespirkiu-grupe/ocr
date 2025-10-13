@@ -175,7 +175,7 @@ func process(ctx context.Context, task model.Task, config config.Config) error {
 }
 
 func getPageCount(ctx context.Context, inputFile string) (int, error) {
-	cmd := exec.Command("pdfinfo", inputFile)
+	cmd := exec.CommandContext(ctx, "pdfinfo", inputFile)
 	out, err := cmd.Output()
 	if err != nil {
 		return 0, err
