@@ -112,7 +112,7 @@ func process(ctx context.Context, task model.Task, config config.Config) error {
 	defer os.RemoveAll(tmpDir)
 	os.MkdirAll(tmpDir, 0755)
 
-	pageCount, err := getPageCount(ctx, tmpFile)
+	pageCount, err := getPageCountMuTool(ctx, tmpFile)
 	if err != nil {
 		return err
 	}
@@ -172,6 +172,20 @@ func process(ctx context.Context, task model.Task, config config.Config) error {
 		return nil
 	}
 	return postResults()
+}
+
+func getPageCountMuTool(ctx context.Context, inputFile string) (int, error) {
+	cmd := exec.CommandContext(ctx, "mutool", "show", inputFile, "trailer/Root/Pages/Count")
+	out, err := cmd.Output()
+	if err != nil {
+		return 0, err
+	}
+	var n int
+	_, err = fmt.Sscanf(string(out), "%d", &n)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 func getPageCount(ctx context.Context, inputFile string) (int, error) {

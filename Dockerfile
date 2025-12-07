@@ -14,7 +14,7 @@ RUN CGO_ENABLED=0 go build -o app ./cmd/app
 FROM alpine:latest
 COPY --from=builder /temp/app /app
 
-RUN apk update && apk add --no-cache tesseract-ocr tesseract-ocr-data-lit tesseract-ocr-data-eng poppler-utils ghostscript && rm -rf /var/cache/apk/*
+RUN apk update && apk add --no-cache tesseract-ocr tesseract-ocr-data-lit tesseract-ocr-data-eng poppler-utils ghostscript mupdf-tools && rm -rf /var/cache/apk/*
 
 WORKDIR /work
 
