@@ -10,9 +10,9 @@ cp env.example .env
 2. Set `GET_TASK_URL`, `POST_RESULT_URL` and `CONCURRENCY` in `.env`
 
 ```shell
-GET_TASK_URL= # tasks url  ( to get this url contact us at https://viespirkiai.top/kontaktai)
-POST_RESULT_URL= # results url ( to get this url contact us at https://viespirkiai.top/kontaktai)
-BASE_FILE_URL=https://failai-direct.viespirkiai.top/
+GET_TASK_URL= # tasks url  (to get this url contact us at https://viespirkiai.org/kontaktai)
+POST_RESULT_URL= # results url (to get this url contact us at https://viespirkiai.org/kontaktai)
+BASE_FILE_URL=https://failai.viespirkiai.org/
 CONCURRENCY=8 # 32 real cores + HT = floor(32/3) = 10 is value value you need to set
 INBOX_DIR=/inbox
 TESSERACT_LANG=lit+eng
@@ -33,7 +33,7 @@ To rebuild the container, if you made code changes: `docker compose up -d --buil
 
 ## Get in touch
 
-Exposing the service over the public internet is beyond the scope of this document, but do [reach out](https://viespirkiai.top/kontaktai) if you want to contribute a `golang` and need help.
+Exposing the service over the public internet is beyond the scope of this document, but do [reach out](https://viespirkiai.org/kontaktai) if you want to contribute a `golang` and need help.
 
 
 # For advanced osx users
