@@ -1,6 +1,5 @@
 # ocr
 
-
 1. Copy [env.example](env.example) to `.env`
 
 ```shell
