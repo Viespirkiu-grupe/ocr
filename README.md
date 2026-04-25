@@ -1,17 +1,17 @@
 # ocr
 
-
 1. Copy [env.example](env.example) to `.env`
 
 ```shell
 cp env.example .env
 ```
 
-2. Set `GET_TASK_URL`, `POST_RESULT_URL` and `CONCURRENCY` in `.env`
+2. Set `API_KEY` in `.env`. The worker uses it as a bearer token when checking out tasks and submitting results.
 
 ```shell
-GET_TASK_URL= # tasks url  (to get this url contact us at https://viespirkiai.org/kontaktai)
-POST_RESULT_URL= # results url (to get this url contact us at https://viespirkiai.org/kontaktai)
+API_KEY= # bearer token
+GET_TASK_URL=https://viespirkiai.org/failas/ocr/checkout
+POST_RESULT_URL=https://viespirkiai.org/failas/ocr/submit
 BASE_FILE_URL=https://failai.viespirkiai.org/
 CONCURRENCY=8 # 32 real cores + HT = floor(32/3) = 10 is value value you need to set
 INBOX_DIR=/inbox
@@ -41,5 +41,5 @@ Exposing the service over the public internet is beyond the scope of this docume
 ```
 container system start
 container build --tag ocr --file Dockerfile .
-container run --rm -d -c [threads count] -m 1G --name ocr -v $(pwd)/inbox:/inbox --env-file=./.env -e GET_TASK_URL=viespirkiai... -e POST_RESULT_URL=http://viespirkiai... ocr
+container run --rm -d -c [threads count] -m 1G --name ocr -v $(pwd)/inbox:/inbox --env-file=./.env -e API_KEY=... -e GET_TASK_URL=https://viespirkiai.org/failas/ocr/checkout -e POST_RESULT_URL=https://viespirkiai.org/failas/ocr/submit ocr
 ```

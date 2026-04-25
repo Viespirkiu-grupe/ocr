@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -55,7 +56,7 @@ func File(ctx context.Context, url string, path string) error {
 	return err
 }
 
-func Task(ctx context.Context, url string) (model.Task, error) {
+func Task(ctx context.Context, url string, apiKey string) (model.Task, error) {
 	slog.Info("fetching task")
 	defer func() {
 		slog.Info("fetched task", "url", url)
@@ -64,14 +65,22 @@ func Task(ctx context.Context, url string) (model.Task, error) {
 		Timeout: 5 * time.Second,
 	}
 
-	resp, err := hc.Post(url, "application/json", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return model.Task{}, err
+	}
+	req.Header.Set("Accept", "application/json")
+	setBearerAuth(req, apiKey)
+
+	resp, err := hc.Do(req)
 	if err != nil {
 		return model.Task{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return model.Task{}, fmt.Errorf("failed to fetch task: %d", resp.StatusCode)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return model.Task{}, fmt.Errorf("failed to fetch task: %s: %s", resp.Status, strings.TrimSpace(string(body)))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -87,7 +96,7 @@ func Task(ctx context.Context, url string) (model.Task, error) {
 	return task, nil
 }
 
-func Results(ctx context.Context, url string, result model.Response) error {
+func Results(ctx context.Context, url string, result model.Response, apiKey string) error {
 	slog.Info("posting result", "id", result.ID, "texts", len(result.Text))
 	defer func() {
 		slog.Info("posted result", "id", result.ID, "texts", len(result.Text))
@@ -101,15 +110,31 @@ func Results(ctx context.Context, url string, result model.Response) error {
 		return err
 	}
 
-	resp, err := hc.Post(url, "application/json", io.NopCloser(io.Reader(strings.NewReader(string(b)))))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	setBearerAuth(req, apiKey)
+
+	resp, err := hc.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to post result: %s", resp.Status)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("failed to post result: %s: %s", resp.Status, strings.TrimSpace(string(body)))
 	}
 
 	return nil
+}
+
+func setBearerAuth(req *http.Request, apiKey string) {
+	if apiKey == "" {
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 }

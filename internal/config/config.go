@@ -1,7 +1,6 @@
 package config
 
 import (
-	"log/slog"
 	"os"
 	"strconv"
 
@@ -13,15 +12,15 @@ type Config struct {
 	BaseFileURL       string
 	NextURL           string
 	ResultURL         string
+	APIKey            string
 	Concurrency       int
 	TesseractLang     string
 	ExtraResultFields map[string]any
 }
 
 func Load() Config {
-	slog.Debug("loading config", "env", os.Environ())
 	if err := godotenv.Load(); err != nil {
-		slog.Warn("No .env file found")
+		// Environment variables can also be provided externally, e.g. via Docker.
 	}
 	getEnv := func(k, def string) string {
 		if v, ok := os.LookupEnv(k); ok {
@@ -51,9 +50,10 @@ func Load() Config {
 
 	return Config{
 		InboxDir:      getEnv("INBOX_DIR", "./inbox"),
-		BaseFileURL:   getEnv("BASE_FILE_URL", "http://localhost:8080/file/"),
-		NextURL:       getEnv("GET_TASK_URL", "http://localhost:8080/next"),
-		ResultURL:     getEnv("POST_RESULT_URL", "http://localhost:8080/result"),
+		BaseFileURL:   getEnv("BASE_FILE_URL", "https://failai.viespirkiai.org/"),
+		NextURL:       getEnv("GET_TASK_URL", "https://viespirkiai.org/failas/ocr/checkout"),
+		ResultURL:     getEnv("POST_RESULT_URL", "https://viespirkiai.org/failas/ocr/submit"),
+		APIKey:        getEnv("API_KEY", ""),
 		Concurrency:   atoi("CONCURRENCY", 4),
 		TesseractLang: getEnv("TESSERACT_LANG", "lit+eng"),
 		ExtraResultFields: map[string]any{

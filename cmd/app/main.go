@@ -40,6 +40,9 @@ func main() {
 				}
 				return slog.String(a.Key, val)
 			}
+			if strings.EqualFold(a.Key, "authorization") {
+				return slog.String(a.Key, "Bearer ******")
+			}
 			return a
 		},
 	})
@@ -53,7 +56,15 @@ func run(ctx context.Context) error {
 	config := config.Load()
 	since = time.Now()
 
-	slog.Info("starting ocr worker", "config", config)
+	slog.Info("starting ocr worker",
+		"inbox_dir", config.InboxDir,
+		"base_file_url", config.BaseFileURL,
+		"get_task_url", config.NextURL,
+		"post_result_url", config.ResultURL,
+		"concurrency", config.Concurrency,
+		"tesseract_lang", config.TesseractLang,
+		"api_key_configured", config.APIKey != "",
+	)
 
 	if _, err := os.Stat(config.InboxDir); os.IsNotExist(err) {
 		return fmt.Errorf("inbox dir does not exist. Check for env INBOX_DIR")
@@ -61,7 +72,7 @@ func run(ctx context.Context) error {
 	go func() {
 		for {
 			slog.Info("polling for task")
-			task, err := fetcher.Task(ctx, config.NextURL)
+			task, err := fetcher.Task(ctx, config.NextURL, config.APIKey)
 			if err != nil {
 				slog.Error("fetch task", "error", err)
 				time.Sleep(10 * time.Second)
@@ -101,14 +112,14 @@ func run(ctx context.Context) error {
 func process(ctx context.Context, task model.Task, config config.Config) error {
 	fileURL := strings.TrimRight(config.BaseFileURL, "/") + task.Uri
 
-	tmpFile := os.Getenv("INBOX_DIR") + "/" + task.IDString() + ".pdf"
+	tmpFile := config.InboxDir + "/" + task.IDString() + ".pdf"
 	defer os.RemoveAll(tmpFile)
 	if err := fetcher.File(ctx, fileURL, tmpFile); err != nil {
 		return err
 	}
 
 	slog.Info("fetched file", "id", task.ID, "file", tmpFile)
-	tmpDir := os.Getenv("INBOX_DIR") + "/tmp/" + task.IDString()
+	tmpDir := config.InboxDir + "/tmp/" + task.IDString()
 	defer os.RemoveAll(tmpDir)
 	os.MkdirAll(tmpDir, 0755)
 
@@ -162,7 +173,7 @@ func process(ctx context.Context, task model.Task, config config.Config) error {
 	postResults := func() error {
 		var err error
 		for range 5 {
-			err = fetcher.Results(ctx, config.ResultURL, result)
+			err = fetcher.Results(ctx, config.ResultURL, result, config.APIKey)
 			if err == nil {
 				break
 			}

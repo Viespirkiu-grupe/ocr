@@ -26,7 +26,7 @@ RUN sed -i 's/fopen64/fopen/g' *.c && \
     sed -i 's/stat64/stat/g' *.c && \
     sed -i 's/lseek64/lseek/g' *.c
 RUN sed -i 's/RAW_FLAGS = -Wall -O2/RAW_FLAGS = -Wall -O2 -fcommon/g' Makefile
-RUN make && make install
+RUN mkdir -p /usr/share/man/man8 && make && make install
 RUN rm -rf /tmp/foremost-1.5.7 /tmp/foremost.tar.gz /var/cache/apk/*
 WORKDIR /work
 
