@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -15,6 +16,8 @@ type Config struct {
 	APIKey            string
 	Concurrency       int
 	TesseractLang     string
+	GsTimeout         time.Duration
+	TesseractTimeout  time.Duration
 	ExtraResultFields map[string]any
 }
 
@@ -48,6 +51,9 @@ func Load() Config {
 	// 	return def
 	// }
 
+	gsTimeoutSec := atoi("GS_TIMEOUT", 180)
+	tesseractTimeoutSec := atoi("TESSERACT_TIMEOUT", 1800)
+
 	return Config{
 		InboxDir:      getEnv("INBOX_DIR", "./inbox"),
 		BaseFileURL:   getEnv("BASE_FILE_URL", "https://failai.viespirkiai.org/"),
@@ -56,6 +62,8 @@ func Load() Config {
 		APIKey:        getEnv("API_KEY", ""),
 		Concurrency:   atoi("CONCURRENCY", 4),
 		TesseractLang: getEnv("TESSERACT_LANG", "lit+eng"),
+		GsTimeout:        time.Duration(gsTimeoutSec) * time.Second,
+		TesseractTimeout: time.Duration(tesseractTimeoutSec) * time.Second,
 		ExtraResultFields: map[string]any{
 			"source": "golang-worker",
 		},

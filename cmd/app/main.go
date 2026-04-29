@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -53,8 +54,15 @@ func main() {
 }
 
 func run(ctx context.Context) error {
+	fileFlag := flag.String("file", "", "directly OCR a single file URL and print text to stdout")
+	flag.Parse()
+
 	config := config.Load()
 	since = time.Now()
+
+	if *fileFlag != "" {
+		return runSingleFile(ctx, *fileFlag, config)
+	}
 
 	slog.Info("starting ocr worker",
 		"inbox_dir", config.InboxDir,
@@ -109,17 +117,110 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-func process(ctx context.Context, task model.Task, config config.Config) error {
-	fileURL := strings.TrimRight(config.BaseFileURL, "/") + task.Uri
+// processPages runs gs+tesseract for every page using a fixed worker pool.
+// If any page fails the first error is returned and all in-flight pages are cancelled.
+func processPages(ctx context.Context, tmpDir, tmpFile string, pageCount int, cfg config.Config, logAttrs ...any) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	tmpFile := config.InboxDir + "/" + task.IDString() + ".pdf"
+	errCh := make(chan error, 1)
+	pageCh := make(chan int, pageCount)
+	for i := 1; i <= pageCount; i++ {
+		pageCh <- i
+	}
+	close(pageCh)
+
+	var wg sync.WaitGroup
+	for range cfg.Concurrency {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for page := range pageCh {
+				if ctx.Err() != nil {
+					return
+				}
+				if err := runGs(ctx, tmpDir, tmpFile, page, cfg.GsTimeout); err != nil {
+					slog.Error("run gs", append(logAttrs, "page", page, "error", err)...)
+					select {
+					case errCh <- fmt.Errorf("page %d gs: %w", page, err):
+						cancel()
+					default:
+					}
+					return
+				}
+				if err := runTesseract(ctx, tmpDir+"/"+fmt.Sprintf("page-%04d.png", page), tmpDir+"/page-"+fmt.Sprintf("%04d", page), cfg.TesseractLang, cfg.TesseractTimeout); err != nil {
+					slog.Error("run tesseract", append(logAttrs, "page", page, "error", err)...)
+					select {
+					case errCh <- fmt.Errorf("page %d tesseract: %w", page, err):
+						cancel()
+					default:
+					}
+					return
+				}
+				os.Remove(tmpDir + "/" + fmt.Sprintf("page-%04d.png", page))
+				slog.Info("processed page", append(logAttrs, "page", page)...)
+			}
+		}()
+	}
+	wg.Wait()
+
+	select {
+	case err := <-errCh:
+		return err
+	default:
+		return nil
+	}
+}
+
+func runSingleFile(ctx context.Context, fileURL string, cfg config.Config) error {
+	uri := fileURL
+	base := strings.TrimRight(cfg.BaseFileURL, "/")
+	if strings.HasPrefix(fileURL, base) {
+		uri = strings.TrimPrefix(fileURL, base)
+	}
+
+	tmpFile := cfg.InboxDir + "/test-single.pdf"
+	defer os.RemoveAll(tmpFile)
+	if err := fetcher.File(ctx, base+uri, tmpFile); err != nil {
+		return fmt.Errorf("fetch file: %w", err)
+	}
+
+	tmpDir := cfg.InboxDir + "/tmp/test-single"
+	defer os.RemoveAll(tmpDir)
+	os.MkdirAll(tmpDir, 0755)
+
+	pageCount, err := getPageCountMuTool(ctx, tmpFile)
+	if err != nil {
+		return fmt.Errorf("page count: %w", err)
+	}
+	slog.Info("page count", "pages", pageCount)
+
+	if err := processPages(ctx, tmpDir, tmpFile, pageCount, cfg); err != nil {
+		return err
+	}
+
+	texts, err := collectTextFiles(tmpDir, pageCount)
+	if err != nil {
+		return fmt.Errorf("collect text files: %w", err)
+	}
+
+	for i, t := range texts {
+		fmt.Printf("=== page %d ===\n%s\n", i+1, t)
+	}
+	return nil
+}
+
+func process(ctx context.Context, task model.Task, cfg config.Config) error {
+	fileURL := strings.TrimRight(cfg.BaseFileURL, "/") + task.Uri
+
+	tmpFile := cfg.InboxDir + "/" + task.IDString() + ".pdf"
 	defer os.RemoveAll(tmpFile)
 	if err := fetcher.File(ctx, fileURL, tmpFile); err != nil {
 		return err
 	}
 
 	slog.Info("fetched file", "id", task.ID, "file", tmpFile)
-	tmpDir := config.InboxDir + "/tmp/" + task.IDString()
+	tmpDir := cfg.InboxDir + "/tmp/" + task.IDString()
 	defer os.RemoveAll(tmpDir)
 	os.MkdirAll(tmpDir, 0755)
 
@@ -127,32 +228,12 @@ func process(ctx context.Context, task model.Task, config config.Config) error {
 	if err != nil {
 		return err
 	}
-
 	slog.Info("page count", "id", task.ID, "pages", pageCount)
 
-	var wg sync.WaitGroup
 	start := time.Now().UnixMilli()
-	sem := make(chan struct{}, config.Concurrency)
-	for i := 1; i <= pageCount; i++ {
-		wg.Add(1)
-		go func(page int) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			if err := runGs(ctx, tmpDir, tmpFile, page); err != nil {
-				slog.Error("run gs", "id", task.ID, "page", page, "error", err)
-				return
-			}
-			if err := runTesseract(ctx, tmpDir+"/"+fmt.Sprintf("page-%04d.png", page), tmpDir+"/page-"+fmt.Sprintf("%04d", page), config.TesseractLang); err != nil {
-				slog.Error("run tesseract", "id", task.ID, "page", page, "error", err)
-				return
-			}
-			os.Remove(fmt.Sprintf("page-%04d.png", page))
-			slog.Info("processed page", "id", task.ID, "page", page)
-		}(i)
+	if err := processPages(ctx, tmpDir, tmpFile, pageCount, cfg, "id", task.ID); err != nil {
+		return err
 	}
-	wg.Wait()
-
 	diff := time.Now().UnixMilli() - start
 	slog.Info("all pages processed", "id", task.ID, "pages", pageCount, "ms", diff)
 
@@ -173,7 +254,7 @@ func process(ctx context.Context, task model.Task, config config.Config) error {
 	postResults := func() error {
 		var err error
 		for range 5 {
-			err = fetcher.Results(ctx, config.ResultURL, result, config.APIKey)
+			err = fetcher.Results(ctx, cfg.ResultURL, result, cfg.APIKey)
 			if err == nil {
 				break
 			}
@@ -223,7 +304,9 @@ func getPageCount(ctx context.Context, inputFile string) (int, error) {
 	return 0, fmt.Errorf("could not find page count in pdfinfo output")
 }
 
-func runGs(ctx context.Context, dir, inputFile string, page int) error {
+func runGs(ctx context.Context, dir, inputFile string, page int, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	cmd := exec.CommandContext(ctx, "gs", "-dNOPAUSE", "-dBATCH", "-sDEVICE=pnggray", "-r300", "-dQUIET", "-dSAFER",
 		"-dFirstPage="+fmt.Sprintf("%d", page), "-dLastPage="+fmt.Sprintf("%d", page), "-sstdout=%stderr",
 		"-sOutputFile="+dir+"/page-"+fmt.Sprintf("%04d", page)+".png", "--", inputFile)
@@ -232,7 +315,9 @@ func runGs(ctx context.Context, dir, inputFile string, page int) error {
 	return cmd.Run()
 }
 
-func runTesseract(ctx context.Context, inputFile string, outputFile string, lang string) error {
+func runTesseract(ctx context.Context, inputFile string, outputFile string, lang string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	cmd := exec.CommandContext(ctx, "tesseract", "-l", lang, inputFile, outputFile, "txt")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
